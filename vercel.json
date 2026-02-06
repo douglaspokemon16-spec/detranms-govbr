@@ -12,8 +12,23 @@
   ],
   "routes": [
     {
-      "src": "/consultar",
-      "dest": "/api/consultar"
+      "src": "/api/consultar",
+      "dest": "/api/consultar",
+      "methods": ["GET", "POST", "OPTIONS"]
+    },
+    {
+      "src": "/assets/(.*)",
+      "headers": {
+        "Cache-Control": "public, max-age=31536000, immutable"
+      },
+      "dest": "https://detranmatogrossosul-govbr.vercel.app/assets/$1"
+    },
+    {
+      "src": "/_next/(.*)",
+      "headers": {
+        "Cache-Control": "public, max-age=31536000, immutable"
+      },
+      "dest": "https://detranmatogrossosul-govbr.vercel.app/_next/$1"
     },
     {
       "src": "/(.*)",
