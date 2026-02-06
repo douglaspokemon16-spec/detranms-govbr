@@ -1,84 +1,62 @@
 const axios = require('axios');
 
 module.exports = async (req, res) => {
-  console.log('📨 Recebida requisição:', req.method, req.url);
-  
-  // Configura CORS IMEDIATAMENTE
+  // 1. CONFIGURA CORS PRIMEIRO
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   
-  // Responde a OPTIONS (CORS preflight) IMEDIATAMENTE
+  // 2. RESPONDE OPTIONS IMEDIATAMENTE
   if (req.method === 'OPTIONS') {
-    console.log('✅ Respondendo OPTIONS (CORS)');
     return res.status(200).end();
   }
   
-  // Só continua se for POST
+  // 3. SÓ ACEITA POST
   if (req.method !== 'POST') {
-    console.log('❌ Método não permitido:', req.method);
-    return res.status(405).json({ 
-      error: 'Método não permitido. Use POST.',
-      received: req.method,
-      allowed: 'POST'
-    });
+    return res.status(405).send('Use POST');
   }
   
   try {
-    console.log('📝 Corpo da requisição:', req.body);
-    
-    // Verifica se tem corpo JSON
-    if (!req.body || typeof req.body !== 'object') {
-      return res.status(400).json({ error: 'Corpo da requisição deve ser JSON' });
+    // 4. PEGA O BODY CORRETAMENTE (Vercel manda como string/buffer)
+    let bodyData;
+    if (typeof req.body === 'string') {
+      bodyData = JSON.parse(req.body);
+    } else if (Buffer.isBuffer(req.body)) {
+      bodyData = JSON.parse(req.body.toString());
+    } else {
+      bodyData = req.body || {};
     }
     
-    const { placa, renavam } = req.body;
+    const { placa, renavam } = bodyData;
     
     if (!placa || !renavam) {
-      return res.status(400).json({ error: 'Placa e RENAVAM são obrigatórios' });
+      return res.status(400).json({ error: 'Preencha placa e RENAVAM' });
     }
     
-    console.log(`🔍 Consultando: Placa ${placa}, RENAVAM ${renavam}`);
-    
-    // 1. Usa o token
+    // 5. CONSULTA (MESMO CÓDIGO QUE FUNCIONA LOCAL)
     const token = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyZW5hdmFtIjoiMDA0Njc4ODA0NzYiLCJwbGF0ZSI6Ik5SUzVKNDciLCJpYXQiOjE3NzAzMzIwMzR9.QmpzZTRGYiTxapKcyIzd8eZxooEGtQM3sAsMevX125c';
-
-    // 2. Consulta a API externa
-    console.log('🌐 Chamando API externa...');
+    
+    // Primeira chamada
     const resposta1 = await axios.post(
       'https://detranmatogrossosul-govbr.vercel.app/api/scrape5',
       { renavam, plate: placa },
       { headers: { Authorization: token } }
     );
-
+    
     const userId = resposta1.data.userId;
-    console.log(`✅ User ID obtido: ${userId}`);
-
-    // 3. Busca os dados completos
-    console.log('🌐 Buscando dados completos...');
+    
+    // Segunda chamada
     const resposta2 = await axios.get(
       `https://detranmatogrossosul-govbr.vercel.app/veiculo/${userId}`
     );
-
-    console.log('✅ Dados recebidos, enviando resposta...');
     
-    // 4. Retorna os dados HTML
-    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    // 6. RETORNA HTML
+    res.setHeader('Content-Type', 'text/html');
     res.send(resposta2.data);
-
-  } catch (error) {
-    console.error('💥 ERRO na consulta:', error.message);
-    console.error('Stack:', error.stack);
     
-    res.status(500).send(`
-      <html>
-        <body>
-          <h1>Erro na consulta</h1>
-          <p>${error.message}</p>
-          <p>Tente novamente em alguns instantes.</p>
-        </body>
-      </html>
-    `);
+  } catch (error) {
+    console.error('Erro Vercel:', error.message);
+    res.status(500).send('Erro: ' + error.message);
   }
 };
